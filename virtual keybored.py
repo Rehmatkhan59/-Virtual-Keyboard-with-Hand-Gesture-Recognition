@@ -15,7 +15,7 @@ detector = HandDetector(detectionCon=0.8, maxHands=1)
 # Keyboard layout (rows of keys)
 keys = [["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
         ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-        ["Z", "X", "C", "V", "B", "N", "M", " ", "<"]]  # Added space and backspace
+        ["Z", "X", "C", "V", "B", "N", "M", " ", "<"]]  
 
 # Variables for text display and typing effect
 typed_text = ""
@@ -60,7 +60,7 @@ def drawTextArea(img, text):
     words = text.split(' ')
     lines = []
     current_line = ""
-    max_chars_per_line = 30  # Adjust based on your screen
+    max_chars_per_line = 30 
 
     for word in words:
         if len(current_line + word) < max_chars_per_line:
@@ -103,7 +103,7 @@ class Button():
 buttonList = []
 for i in range(len(keys)):
     for j, key in enumerate(keys[i]):
-        if key == " ":  # Space bar - make it wider
+        if key == " ":  # Space bar 
             buttonList.append(Button([100 * j + 50, 100 * i + 50], key, [170, 85]))
         else:
             buttonList.append(Button([100 * j + 50, 100 * i + 50], key))
@@ -188,7 +188,7 @@ while True:
                     last_click_time = current_time
                     print(f"Clicked: {button.text}, Text now: '{typed_text}'")  # Debug print
 
-    # Instructions
+    # Instructions for user
     cv2.putText(img, "Virtual Keyboard - Point and pinch to type", (50, 30),
                 cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
     cv2.putText(img, "Bring index and middle finger close together to click", (50, 630),
@@ -201,4 +201,5 @@ while True:
         break
 
 cap.release()
+
 cv2.destroyAllWindows()
