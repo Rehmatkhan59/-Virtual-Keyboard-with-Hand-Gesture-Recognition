@@ -12,31 +12,55 @@ cap.set(4, 720)
 # Hand detector
 detector = HandDetector(detectionCon=0.8, maxHands=1)
 
-# Keyboard layout (rows of keys)
+# Keyboard layout
 keys = [["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-        ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+        ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
         ["Z", "X", "C", "V", "B", "N", "M", " ", "<"]]  
 
-# Variables for text display and typing effect
+# Variables for text and click handling
 typed_text = ""
-display_text = ""
 last_click_time = 0
-click_delay = 0.5  # Delay between clicks to avoid multiple registrations
-typing_speed = 0.05  # Speed for typing effect
-last_type_time = 0
+click_delay = 0.3  # Delay between clicks
+button_clicked = False  # Track if button was clicked
+clicked_button = None  # Store which button was clicked
+green_button = None  # Store button to be drawn green
+green_button_time = 0  # Time when button turned green
+green_duration = 0.2  # Duration to keep button green
 
 
-# Draw keyboard
+# Button class
+class Button():
+    def __init__(self, pos, text, size=[85, 85]):
+        self.pos = pos
+        self.size = size
+        self.text = text
+
+buttonList = []
+for i in range(len(keys)):
+    for j, key in enumerate(keys[i]):
+        if key == " ":  
+            buttonList.append(Button([100 * j + 50, 100 * i + 50], key, [170, 85]))
+        elif key == "<":  
+            buttonList.append(Button([100 * j + 50 + 170, 100 * i + 50], key, [85, 85]))
+        else:
+            buttonList.append(Button([100 * j + 50, 100 * i + 50], key))
+
+
 def drawAll(img, buttonList):
     for button in buttonList:
         x, y = button.pos
         w, h = button.size
-        cv2.rectangle(img, (x, y), (x + w, y + h), (175, 0, 175), cv2.FILLED)
-        cv2.rectangle(img, (x, y), (x + w, y + h), (255, 255, 255), 2)
 
-        # Special handling for space and backspace
+        # by clicking button should be green
+        if button == green_button and time.time() - green_button_time < green_duration:
+            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), cv2.FILLED)
+        else:
+            # purple color for buttons
+            cv2.rectangle(img, (x, y), (x + w, y + h), (175, 0, 175), cv2.FILLED)
+        cv2.rectangle(img, (x, y), (x + w, y + h), (255, 255, 255), 2)
+            
         if button.text == " ":
-            cv2.putText(img, "SPACE", (x + 10, y + 45),
+            cv2.putText(img, "SPACE", (x + 30, y + 45),
                         cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
         elif button.text == "<":
             cv2.putText(img, "BACK", (x + 15, y + 45),
@@ -47,108 +71,60 @@ def drawAll(img, buttonList):
     return img
 
 
-# Draw text display area
 def drawTextArea(img, text):
-    # Create text display area
-    cv2.rectangle(img, (50, 450), (1230, 550), (50, 50, 50), cv2.FILLED)
-    cv2.rectangle(img, (50, 450), (1230, 550), (255, 255, 255), 3)
+    cv2.rectangle(img, (50, 400), (1230, 470), (175, 0, 175), cv2.FILLED)
+    cv2.rectangle(img, (50, 400), (1230, 470), (255, 255, 255), 3)
+    cv2.putText(img, "Typed Text:", (60, 390), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
 
-    # Add title
-    cv2.putText(img, "Typed Text:", (60, 440), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
+    # Display text 
+    display_text = text
+    if len(display_text) > 60: 
+        display_text = "..." + display_text[-57:]
 
-    # Display text with word wrapping
-    words = text.split(' ')
-    lines = []
-    current_line = ""
-    max_chars_per_line = 30 
+    cv2.putText(img, display_text, (60, 440), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
 
-    for word in words:
-        if len(current_line + word) < max_chars_per_line:
-            current_line += word + " "
-        else:
-            if current_line:
-                lines.append(current_line.strip())
-            current_line = word + " "
-
-    if current_line:
-        lines.append(current_line.strip())
-
-    # Display lines (show only last 3 lines to fit in the area)
-    display_lines = lines[-3:] if len(lines) > 3 else lines
-
-    for i, line in enumerate(display_lines):
-        y_pos = 480 + (i * 25)
-        cv2.putText(img, line, (60, y_pos), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
-
-    # Add cursor effect
-    if len(display_lines) > 0:
-        last_line = display_lines[-1]
-        cursor_x = 60 + len(last_line) * 12
-        cursor_y = 480 + (len(display_lines) - 1) * 25
-        if int(time.time() * 2) % 2:  # Blinking cursor
-            cv2.putText(img, "|", (cursor_x, cursor_y), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+    # Blinking cursor
+    if int(time.time() * 2) % 2:
+        cursor_x = 60 + len(display_text) * 18
+        cv2.putText(img, "|", (cursor_x, 440), cv2.FONT_HERSHEY_PLAIN, 3, (0, 255, 0), 3)
 
     return img
 
 
-# Button class
-class Button():
-    def __init__(self, pos, text, size=[85, 85]):
-        self.pos = pos
-        self.size = size
-        self.text = text
-
-
-# Create buttons
-buttonList = []
-for i in range(len(keys)):
-    for j, key in enumerate(keys[i]):
-        if key == " ":  # Space bar 
-            buttonList.append(Button([100 * j + 50, 100 * i + 50], key, [170, 85]))
-        else:
-            buttonList.append(Button([100 * j + 50, 100 * i + 50], key))
-
-
-# Typing effect function
-def update_display_text():
-    global display_text, typed_text, last_type_time
-    current_time = time.time()
-
-    if len(display_text) < len(typed_text) and current_time - last_type_time > typing_speed:
-        display_text += typed_text[len(display_text)]
-        last_type_time = current_time
-
-
 while True:
     success, img = cap.read()
-    img = cv2.flip(img, 1)  # Mirror image
+    img = cv2.flip(img, 1)  # Mirror the image
     hands, img = detector.findHands(img)
-
-    # Update typing effect
-    update_display_text()
-
     img = drawAll(img, buttonList)
-    img = drawTextArea(img, display_text)
+    img = drawTextArea(img, typed_text)
 
     if hands:
-        lmList = hands[0]['lmList']  # List of landmarks
-        indexFinger = lmList[8]  # Index finger tip
+        # Get hand landmarks
+        hand = hands[0]
+        lmList = hand['lmList']
+
+        # Get index finger tip position
+        indexFinger = lmList[8]
         x, y = indexFinger[0], indexFinger[1]
 
         # Draw finger position
-        cv2.circle(img, (x, y), 15, (255, 0, 255), cv2.FILLED)
+        cv2.circle(img, (x, y), 12, (255, 0, 255), cv2.FILLED)
 
+        # Check which button is being hovered
+        hovered_button = None
         for button in buttonList:
             bx, by = button.pos
             bw, bh = button.size
 
             if bx < x < bx + bw and by < y < by + bh:
-                # Highlight hovered button
-                cv2.rectangle(img, (bx, by), (bx + bw, by + bh), (0, 255, 0), cv2.FILLED)
+                hovered_button = button
 
-                # Special handling for space and backspace display
+                # Darker purple when hovering (pointing at key)
+                cv2.rectangle(img, (bx, by), (bx + bw, by + bh), (120, 0, 120), cv2.FILLED)
+
+                # Display button text
                 if button.text == " ":
-                    cv2.putText(img, "SPACE", (bx + 10, by + 45),
+                    cv2.putText(img, "SPACE", (bx + 30, by + 45),
                                 cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
                 elif button.text == "<":
                     cv2.putText(img, "BACK", (bx + 15, by + 45),
@@ -156,44 +132,52 @@ while True:
                 else:
                     cv2.putText(img, button.text, (bx + 25, by + 55),
                                 cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 4)
+                break
 
-                # Detect "click" (distance between index tip and middle tip)
-                # Extract only x, y coordinates (ignore z coordinate)
-                indexTip = [lmList[8][0], lmList[8][1]]
-                middleTip = [lmList[12][0], lmList[12][1]]
-                l, _, _ = detector.findDistance(indexTip, middleTip, img)
+        # Check for pinch gesture (click detection)
+        if hovered_button:
+            # Calculate distance between index finger and thumb
+            indexTip = lmList[8][:2]
+            thumbTip = lmList[4][:2]
 
-                current_time = time.time()
-                if l < 30 and current_time - last_click_time > click_delay:  # Made distance smaller for easier clicking
-                    # Visual feedback for click
-                    cv2.rectangle(img, (bx, by), (bx + bw, by + bh), (0, 0, 255), cv2.FILLED)
+            # Use the correct findDistance method without draw parameter
+            distance, _, img = detector.findDistance(indexTip, thumbTip, img)
 
-                    if button.text == " ":
-                        cv2.putText(img, "SPACE", (bx + 10, by + 45),
-                                    cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
+            current_time = time.time()
+
+            # Detect click (pinch gesture)
+            if distance < 50:  # Fingers close together
+                if not button_clicked and current_time - last_click_time > click_delay:
+                    # Register the click
+                    button_clicked = True
+                    clicked_button = hovered_button
+                    last_click_time = current_time
+
+                    # Set button to turn green for visual feedback
+                    green_button = hovered_button
+                    green_button_time = current_time
+
+                    # Process the button press
+                    if hovered_button.text == " ":
                         typed_text += " "
                         pyautogui.press('space')
-                    elif button.text == "<":
-                        cv2.putText(img, "BACK", (bx + 15, by + 45),
-                                    cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
+                    elif hovered_button.text == "<":
                         if typed_text:
                             typed_text = typed_text[:-1]
-                        pyautogui.press('backspace')
+                            pyautogui.press('backspace')
                     else:
-                        cv2.putText(img, button.text, (bx + 25, by + 55),
-                                    cv2.FONT_HERSHEY_PLAIN, 4, (255, 255, 255), 4)
-                        typed_text += button.text.lower()
-                        pyautogui.write(button.text.lower())
+                        typed_text += hovered_button.text.lower()
+                        pyautogui.write(hovered_button.text.lower())
 
-                    last_click_time = current_time
-                    print(f"Clicked: {button.text}, Text now: '{typed_text}'")  # Debug print
+                    print(f"Clicked: {hovered_button.text}")
+            else:
+                # Fingers are apart, reset click state
+                button_clicked = False
 
-    # Instructions for user
-    cv2.putText(img, "Virtual Keyboard - Point and pinch to type", (50, 30),
+    # Instructions
+    cv2.putText(img, "Virtual Keyboard - Pinch (thumb + index) to click", (50, 30),
                 cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
-    cv2.putText(img, "Bring index and middle finger close together to click", (50, 630),
-                cv2.FONT_HERSHEY_PLAIN, 1.5, (200, 200, 200), 2)
-    cv2.putText(img, "Press 'q' to quit", (50, 600),
+    cv2.putText(img, "Press 'q' to quit", (50, 680),
                 cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2)
 
     cv2.imshow("Virtual Keyboard", img)
@@ -201,5 +185,4 @@ while True:
         break
 
 cap.release()
-
 cv2.destroyAllWindows()
